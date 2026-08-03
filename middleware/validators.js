@@ -156,22 +156,31 @@ function validateLeadPayload(body) {
 
 const CATEGORIES = ["Basic Service", "Add-on Service"];
 
-function validatePlan(plan, index, errors) {
-  if (!plan || typeof plan !== "object") {
-    errors[`plans.${index}`] = "Invalid plan entry";
+function validatePromiseItem(item, index, errors) {
+  if (!item || typeof item !== "object") {
+    errors[`promises.${index}`] = "Invalid item entry";
     return;
   }
-  if (!plan.planName || !String(plan.planName).trim()) {
-    errors[`plans.${index}.planName`] = "Please enter the plan name";
+  if (!item.item || !String(item.item).trim()) {
+    errors[`promises.${index}.item`] = "Item name required";
   }
-  if (plan.price === undefined || plan.price === null || plan.price === "") {
-    errors[`plans.${index}.price`] = "Please enter the price";
-  } else if (Number.isNaN(Number(plan.price)) || Number(plan.price) < 0) {
-    errors[`plans.${index}.price`] = "Enter a valid price";
+  // Quantity is optional — only validate it if a value was actually given
+  if (item.quantity !== undefined && item.quantity !== null && item.quantity !== "") {
+    if (Number.isNaN(Number(item.quantity)) || Number(item.quantity) < 1) {
+      errors[`promises.${index}.quantity`] = "Enter a valid quantity";
+    }
   }
-  if (!plan.includedDetails || !String(plan.includedDetails).trim()) {
-    errors[`plans.${index}.includedDetails`] = "Please describe what's included";
+}
+
+function validateDeliverable(item, index, errors) {
+  if (!item || typeof item !== "object") {
+    errors[`deliverables.${index}`] = "Invalid deliverable entry";
+    return;
   }
+  if (!item.name || !String(item.name).trim()) {
+    errors[`deliverables.${index}.name`] = "Deliverable name required";
+  }
+  // Timeline is optional now
 }
 
 function validateServicePayload(body) {
@@ -186,10 +195,117 @@ function validateServicePayload(body) {
   if (body.status && !STATUSES.includes(body.status)) {
     errors.status = "Please select a valid status";
   }
-  if (!Array.isArray(body.plans) || body.plans.length === 0) {
-    errors.plans = "Please add at least one plan";
+  // Both are optional now — plenty of services (e.g. simple add-ons like
+  // "Drone / Helicam") are just a name with no sub-items. Only validate the
+  // shape of whatever rows were actually provided.
+  if (body.promises !== undefined) {
+    if (!Array.isArray(body.promises)) {
+      errors.promises = "Promised items must be a list";
+    } else {
+      body.promises.forEach((item, idx) => validatePromiseItem(item, idx, errors));
+    }
+  }
+  if (body.deliverables !== undefined) {
+    if (!Array.isArray(body.deliverables)) {
+      errors.deliverables = "Deliverables must be a list";
+    } else {
+      body.deliverables.forEach((item, idx) => validateDeliverable(item, idx, errors));
+    }
+  }
+
+  if (Object.keys(errors).length) throwValidation(errors);
+}
+
+// ---------------------------------------------------------------------------
+// Invoices / Quotations
+// ---------------------------------------------------------------------------
+
+const EVENT_TYPES = [
+  "Wedding",
+  "Pre-Wedding",
+  "Engagement",
+  "Baby Shower",
+  "Birthday",
+  "Corporate Event",
+  "Other",
+];
+const INVOICE_STATUSES = ["Draft", "Sent", "Accepted", "Paid", "Overdue"];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateServicePromisedItem(item, index, errors) {
+  if (!item || typeof item !== "object") {
+    errors[`servicesPromised.${index}`] = "Invalid service entry";
+    return;
+  }
+  if (!item.serviceName || !String(item.serviceName).trim()) {
+    errors[`servicesPromised.${index}.serviceName`] = "Service name required";
+  }
+  // Quantity is optional — only validate it if a value was actually given
+  if (item.quantity !== undefined && item.quantity !== null && item.quantity !== "") {
+    if (Number.isNaN(Number(item.quantity)) || Number(item.quantity) < 1) {
+      errors[`servicesPromised.${index}.quantity`] = "Enter a valid quantity";
+    }
+  }
+}
+
+function validateDeliverableItem(item, index, errors) {
+  if (!item || typeof item !== "object") {
+    errors[`deliverables.${index}`] = "Invalid deliverable entry";
+    return;
+  }
+  if (!item.name || !String(item.name).trim()) {
+    errors[`deliverables.${index}.name`] = "Deliverable name required";
+  }
+  // Timeline is optional now
+}
+
+function validateInvoicePayload(body) {
+  const errors = {};
+
+  if (!body.invoiceNo || !String(body.invoiceNo).trim()) {
+    errors.invoiceNo = "Please enter the quotation number";
+  }
+  if (!body.clientName || !String(body.clientName).trim()) {
+    errors.clientName = "Please enter the client name";
+  }
+  if (!body.eventType || !EVENT_TYPES.includes(body.eventType)) {
+    errors.eventType = "Please select the event type";
+  }
+  if (!body.eventDate || !String(body.eventDate).trim()) {
+    errors.eventDate = "Please select the event date";
+  } else if (!DATE_RE.test(String(body.eventDate).slice(0, 10))) {
+    errors.eventDate = "Enter a valid date";
+  }
+  if (!body.venue || !String(body.venue).trim()) {
+    errors.venue = "Please enter the venue";
+  }
+  if (
+    body.maxHours !== undefined &&
+    body.maxHours !== null &&
+    body.maxHours !== "" &&
+    (Number.isNaN(Number(body.maxHours)) || Number(body.maxHours) < 1)
+  ) {
+    errors.maxHours = "Enter a valid number of hours";
+  }
+  if (!Array.isArray(body.servicesPromised) || body.servicesPromised.length === 0) {
+    errors.servicesPromised = "Please add at least one service";
   } else {
-    body.plans.forEach((plan, idx) => validatePlan(plan, idx, errors));
+    body.servicesPromised.forEach((item, idx) =>
+      validateServicePromisedItem(item, idx, errors)
+    );
+  }
+  if (!Array.isArray(body.deliverables) || body.deliverables.length === 0) {
+    errors.deliverables = "Please add at least one deliverable";
+  } else {
+    body.deliverables.forEach((item, idx) => validateDeliverableItem(item, idx, errors));
+  }
+  if (body.projectValue === undefined || body.projectValue === null || body.projectValue === "") {
+    errors.projectValue = "Please enter the project value";
+  } else if (Number.isNaN(Number(body.projectValue)) || Number(body.projectValue) < 0) {
+    errors.projectValue = "Enter a valid project value";
+  }
+  if (body.status && !INVOICE_STATUSES.includes(body.status)) {
+    errors.status = "Please select a valid status";
   }
 
   if (Object.keys(errors).length) throwValidation(errors);
@@ -201,5 +317,6 @@ module.exports = {
   validateBusinessPayload,
   validateLeadPayload,
   validateServicePayload,
+  validateInvoicePayload,
   throwValidation,
 };

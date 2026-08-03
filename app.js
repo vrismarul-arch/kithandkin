@@ -8,6 +8,8 @@ const businessRoutes = require("./routes/businessRoutes");
 const leadRoutes = require("./routes/leadRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
 const authenticate = require("./middleware/authenticate");
+const invoiceRoutes = require("./routes/invoiceRoutes");
+
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -57,7 +59,7 @@ app.use("/api/clients", authenticate, clientRoutes);
 app.use("/api/businesses", authenticate, businessRoutes);
 app.use("/api/leads", authenticate, leadRoutes);
 app.use("/api/services", authenticate, serviceRoutes);
-
+app.use("/api/invoices", invoiceRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

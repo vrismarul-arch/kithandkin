@@ -1,6 +1,21 @@
 const ServiceModel = require("../models/serviceModel");
 const { validateServicePayload } = require("../middleware/validators");
 
+const normalizePromises = (promises = []) =>
+  promises.map((p) => ({
+    item: String(p.item).trim(),
+    quantity:
+      p.quantity !== undefined && p.quantity !== null && p.quantity !== ""
+        ? Number(p.quantity)
+        : null,
+  }));
+
+const normalizeDeliverables = (deliverables = []) =>
+  deliverables.map((d) => ({
+    name: String(d.name).trim(),
+    timeline: d.timeline ? String(d.timeline).trim() : null,
+  }));
+
 const serviceController = {
   async getAll(req, res, next) {
     try {
@@ -29,11 +44,8 @@ const serviceController = {
         serviceName: req.body.serviceName.trim(),
         category: req.body.category,
         status: req.body.status || "Active",
-        plans: (req.body.plans || []).map((p) => ({
-          planName: String(p.planName).trim(),
-          price: Number(p.price),
-          includedDetails: String(p.includedDetails).trim(),
-        })),
+        promises: normalizePromises(req.body.promises),
+        deliverables: normalizeDeliverables(req.body.deliverables),
       });
 
       res.status(201).json({ data: service });
@@ -54,11 +66,8 @@ const serviceController = {
         serviceName: req.body.serviceName?.trim(),
         category: req.body.category,
         status: req.body.status,
-        plans: (req.body.plans || []).map((p) => ({
-          planName: String(p.planName).trim(),
-          price: Number(p.price),
-          includedDetails: String(p.includedDetails).trim(),
-        })),
+        promises: normalizePromises(req.body.promises),
+        deliverables: normalizeDeliverables(req.body.deliverables),
       });
 
       res.json({ data: updated });

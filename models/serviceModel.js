@@ -2,11 +2,16 @@ const pool = require("../config/db");
 
 const TABLE = "services";
 
+// mysql2 auto-parses JSON columns, but guard against null/legacy string rows.
 function normalizeRow(row) {
   if (!row) return row;
+
+  const parseJsonArray = (val) => (Array.isArray(val) ? val : val ? JSON.parse(val) : []);
+
   return {
     ...row,
-    plans: Array.isArray(row.plans) ? row.plans : row.plans ? JSON.parse(row.plans) : [],
+    promises: parseJsonArray(row.promises),
+    deliverables: parseJsonArray(row.deliverables),
   };
 }
 
@@ -21,15 +26,22 @@ const ServiceModel = {
     return normalizeRow(rows[0]) || null;
   },
 
-  async create({ serviceName, category, status, plans }) {
+  async create({ serviceName, category, status, promises, deliverables }) {
     const [result] = await pool.query(
-      `INSERT INTO ${TABLE} (serviceName, category, status, plans) VALUES (?, ?, ?, ?)`,
-      [serviceName, category, status || "Active", JSON.stringify(plans || [])]
+      `INSERT INTO ${TABLE} (serviceName, category, status, promises, deliverables)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        serviceName,
+        category,
+        status || "Active",
+        JSON.stringify(promises || []),
+        JSON.stringify(deliverables || []),
+      ]
     );
     return this.findById(result.insertId);
   },
 
-  async update(id, { serviceName, category, status, plans }) {
+  async update(id, { serviceName, category, status, promises, deliverables }) {
     const fields = [];
     const values = [];
 
@@ -45,9 +57,13 @@ const ServiceModel = {
       fields.push("status = ?");
       values.push(status);
     }
-    if (plans !== undefined) {
-      fields.push("plans = ?");
-      values.push(JSON.stringify(plans || []));
+    if (promises !== undefined) {
+      fields.push("promises = ?");
+      values.push(JSON.stringify(promises || []));
+    }
+    if (deliverables !== undefined) {
+      fields.push("deliverables = ?");
+      values.push(JSON.stringify(deliverables || []));
     }
 
     if (fields.length === 0) return this.findById(id);
