@@ -10,4 +10,5 @@ router.delete("/:id", invoiceController.remove);
 router.get("/:id/docx", invoiceController.generateDocx);
 router.get("/:id/pdf", invoiceController.generatePdf);
 
+/*  */
 module.exports = router;
