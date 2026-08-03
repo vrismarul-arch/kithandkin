@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+// routes/invoiceRoutes.js
 const invoiceController = require("../controllers/invoiceController");
 router.get("/", invoiceController.getAll);
 router.get("/:id", invoiceController.getById);
